@@ -3180,6 +3180,8 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 #ifdef CONFIG_MACH_ASUS_SDM660
 	if ((msoc <= 85) && (ibatt_avg < 1400))
 		ibatt_avg = 1400; /* Force consistent minumum charging current 1400mA upto 85% battery */
+	else if ((msoc >= 86 && msoc <= 90) && (ibatt_avg < 1000))
+		ibatt_avg = 1000; /* Force consistent minumum charging current 1000mA during 86%-90% battery */
 	else {
 #endif
 	if (ibatt_avg < abs(chip->dt.sys_term_curr_ma))
