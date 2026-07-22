@@ -3177,16 +3177,8 @@ static int fg_get_time_to_full_locked(struct fg_dev *fg, int *val)
 	vbatt_avg /= MILLI_UNIT;
 
 	/* clamp ibatt_avg to iterm */
-#ifdef CONFIG_MACH_ASUS_SDM660
-	if ((msoc <= 85) && (ibatt_avg < 1400))
-		ibatt_avg = 1400; /* Force consistent minumum charging current 1400mA upto 85% battery */
-	else {
-#endif
 	if (ibatt_avg < abs(chip->dt.sys_term_curr_ma))
 		ibatt_avg = abs(chip->dt.sys_term_curr_ma);
-#ifdef CONFIG_MACH_ASUS_SDM660
-	}
-#endif
 
 	fg_dbg(fg, FG_TTF, "ibatt_avg=%d\n", ibatt_avg);
 	fg_dbg(fg, FG_TTF, "vbatt_avg=%d\n", vbatt_avg);
