@@ -1,55 +1,59 @@
-name: Build Kernel
+name: Build Custom Kernel
 on:
   workflow_dispatch:
-    inputs:
-      KERNEL_REPO:
-        description: 'Kernel URL repository'
-        default: 'https://github.com/rsuntk/android_kernel_asus_sdm660-4.19'
-        required: true
-      BRANCH:
-        description: 'Kernel branch'
-        default: 'lineage-23.2'
-        required: true
-      DEVICE_TARGET:
-        description: 'Device to build'
-        default: 'X01BD'
-        type: choice
-        options: [X01BD, X00TD]
-      KSU:
-        description: 'Add KernelSU support'
-        default: "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh"
-      KSU_BRANCH:
-        description: 'KernelSU branch'
-        required: true
-        default: 'main'
-      UPDATE_TOOLCHAIN:
-        description: 'Update toolchain cache'
-        type: boolean
-        default: false
-      USE_GCC:
-        description: 'Use GCC for compilation instead of LLVM'
-        type: boolean
-        default: false
-      KCFLAGS_W:
-        description: 'Enable KCFLAGS=-w'
-        type: boolean
-        default: false
-      EXTRA_CONFIG:
-        description: 'Use Extra defconfig'
-        default: 'NULL'
 
 jobs:
   build:
-    uses: ./.github/workflows/build-core.yml
-    secrets: inherit
-    with:
-      KERNEL_REPO: ${{ github.event.inputs.KERNEL_REPO }}
-      BRANCH: ${{ github.event.inputs.BRANCH }}
-      DEVICE_TARGET: ${{ github.event.inputs.DEVICE_TARGET }}
-      KSU: ${{ github.event.inputs.KSU }}
-      KSU_BRANCH: ${{ github.event.inputs.KSU_BRANCH }}
-      UPDATE_TOOLCHAIN: ${{ github.event.inputs.UPDATE_TOOLCHAIN == 'true' }}
-      USE_GCC: ${{ github.event.inputs.USE_GCC == 'true' }}
-      KCFLAGS_W: ${{ github.event.inputs.KCFLAGS_W == 'true' }}
-      EXTRA_CONFIG: ${{ github.event.inputs.EXTRA_CONFIG }}
-      NEED_UPLOAD: false
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install Build Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev libxml2-utils bzip2 libbz2-dev libbz2-1.0 squashfs-tools schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc x11proto-core-dev libx11-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+        
+    - name: Download Compiler
+      run: |
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git compiler
+        
+    - name: Download Kernel Source (rsuntk)
+      run: |
+        git clone --depth=1 -b master https://github.com/rsuntk/android_kernel_asus_sdm660-4.19 kernel
+        
+    - name: Apply Fast Charging Fix & Install KernelSU
+      run: |
+        export PATH="$GITHUB_WORKSPACE/compiler/bin:$PATH"
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+        export CC=clang
+
+        cd kernel
+        
+        # 1. FIX FOR AFTERMARKET CHARGING PORT LOOP
+        sed -i 's/val = HVDCP_EN_BIT;/val = 0;/g' drivers/power/supply/qcom/smb-lib.c
+        sed -i 's/val = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;/val = 0;/g' drivers/power/supply/qcom/smb-lib.c
+        
+        # 2. INSTALL ORIGINAL RSUNTK KERNELSU
+        curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -
+        echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
+        echo "CONFIG_KPROBES=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
+        
+        # 3. COMPILE
+        make O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- vendor/asus/X00TD_defconfig
+        make -j$(nproc --all) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+        
+    - name: Create Flashable Zip (Failsafe for X00TD)
+      run: |
+        git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+        sed -i 's/device.name1=.*/device.name1=X00TD/g' AnyKernel3/anykernel.sh
+        sed -i 's/device.name2=.*/device.name2=X00T/g' AnyKernel3/anykernel.sh
+        sed -i 's|BLOCK=.*;|BLOCK=/dev/block/bootdevice/by-name/boot;|g' AnyKernel3/anykernel.sh
+        sed -i 's/IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=0;/g' AnyKernel3/anykernel.sh
+        cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+        cd AnyKernel3
+        zip -r9 ../CustomKernel-X00TD-rsuntk.zip *
+        
+    - name: Upload Kernel Zip for You
+      uses: actions/upload-artifact@v4
+      with:
+        name: CustomKernel-X00TD-rsuntk
+        path: CustomKernel-X00TD-rsuntk.zip
