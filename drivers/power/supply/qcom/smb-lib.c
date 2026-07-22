@@ -4001,10 +4001,8 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 
 static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 {
-#ifndef CONFIG_MACH_ASUS_SDM660
 	int typec_mode;
 	int rp_ua;
-#endif
 
 	/* while PD is active it should have complete ICL control */
 	if (chg->pd_active)
@@ -4023,16 +4021,12 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
 		break;
 	case POWER_SUPPLY_TYPE_USB_CDP:
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, CDP_CURRENT_UA);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
-#ifndef CONFIG_MACH_ASUS_SDM660
 		typec_mode = smblib_get_prop_typec_mode(chg);
 		rp_ua = get_rp_based_dcp_current(chg, typec_mode);
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
-#else
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, DCP_CURRENT_UA);
-#endif
 		break;
 	case POWER_SUPPLY_TYPE_USB_FLOAT:
 		/*
