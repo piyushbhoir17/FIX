@@ -1,0 +1,55 @@
+name: Build Kernel
+on:
+  workflow_dispatch:
+    inputs:
+      KERNEL_REPO:
+        description: 'Kernel URL repository'
+        default: 'https://github.com/rsuntk/android_kernel_asus_sdm660-4.19'
+        required: true
+      BRANCH:
+        description: 'Kernel branch'
+        default: 'lineage-23.2'
+        required: true
+      DEVICE_TARGET:
+        description: 'Device to build'
+        default: 'X01BD'
+        type: choice
+        options: [X01BD, X00TD]
+      KSU:
+        description: 'Add KernelSU support'
+        default: "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh"
+      KSU_BRANCH:
+        description: 'KernelSU branch'
+        required: true
+        default: 'main'
+      UPDATE_TOOLCHAIN:
+        description: 'Update toolchain cache'
+        type: boolean
+        default: false
+      USE_GCC:
+        description: 'Use GCC for compilation instead of LLVM'
+        type: boolean
+        default: false
+      KCFLAGS_W:
+        description: 'Enable KCFLAGS=-w'
+        type: boolean
+        default: false
+      EXTRA_CONFIG:
+        description: 'Use Extra defconfig'
+        default: 'NULL'
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-core.yml
+    secrets: inherit
+    with:
+      KERNEL_REPO: ${{ github.event.inputs.KERNEL_REPO }}
+      BRANCH: ${{ github.event.inputs.BRANCH }}
+      DEVICE_TARGET: ${{ github.event.inputs.DEVICE_TARGET }}
+      KSU: ${{ github.event.inputs.KSU }}
+      KSU_BRANCH: ${{ github.event.inputs.KSU_BRANCH }}
+      UPDATE_TOOLCHAIN: ${{ github.event.inputs.UPDATE_TOOLCHAIN == 'true' }}
+      USE_GCC: ${{ github.event.inputs.USE_GCC == 'true' }}
+      KCFLAGS_W: ${{ github.event.inputs.KCFLAGS_W == 'true' }}
+      EXTRA_CONFIG: ${{ github.event.inputs.EXTRA_CONFIG }}
+      NEED_UPLOAD: false
