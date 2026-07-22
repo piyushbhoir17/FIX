@@ -1328,7 +1328,7 @@ static int smblib_hvdcp_enable_vote_callback(struct votable *votable,
 {
 	struct smb_charger *chg = data;
 	int rc;
-	u8 val = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
+	u8 val = 0;
 	u8 stat;
 
 	/* vote to enable/disable HW autonomous INOV */
@@ -1340,7 +1340,7 @@ static int smblib_hvdcp_enable_vote_callback(struct votable *votable,
 	 * negotiation happens.
 	 */
 	if (!hvdcp_enable)
-		val = HVDCP_EN_BIT;
+		val = 0;
 
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 				 HVDCP_EN_BIT | HVDCP_AUTH_ALG_EN_CFG_BIT,
