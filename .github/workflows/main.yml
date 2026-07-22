@@ -19,7 +19,7 @@ jobs:
       run: |
         git clone --depth=1 -b master https://github.com/rsuntk/android_kernel_asus_sdm660-4.19 kernel
         
-    - name: Apply Fast Charging Fix & Install KernelSU
+    - name: Apply Fixes & Install KernelSU-Next
       run: |
         export PATH="$GITHUB_WORKSPACE/compiler/bin:$PATH"
         export CROSS_COMPILE=aarch64-linux-gnu-
@@ -32,32 +32,34 @@ jobs:
         sed -i 's/val = HVDCP_EN_BIT;/val = 0;/g' drivers/power/supply/qcom/smb-lib.c
         sed -i 's/val = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;/val = 0;/g' drivers/power/supply/qcom/smb-lib.c
         
-        # 2. DISABLE LTO & ENABLE KPROBES (Required for KernelSU to hook into your phone)
-        sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/vendor/asus/X00TD_defconfig
+        # 2. ENABLE KPROBES & KALLSYMS (Required for KernelSU-Next to bypass LTO)
         echo "CONFIG_KPROBES=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
         echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
+        echo "CONFIG_KALLSYMS=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
+        echo "CONFIG_KALLSYMS_ALL=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
         
-        # 3. INSTALL ORIGINAL RSUNTK KERNELSU (Letting it auto-select the 'legacy' branch)
-        curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -
+        # 3. INSTALL KERNELSU-NEXT (The ultimate solution for older non-GKI phones)
+        curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -
         echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/asus/X00TD_defconfig
         
         # 4. COMPILE
         make O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- vendor/asus/X00TD_defconfig
         make -j$(nproc --all) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         
-    - name: Create Flashable Zip (Failsafe for X00TD)
+    - name: Create Flashable Zip
       run: |
         git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
         sed -i 's/device.name1=.*/device.name1=X00TD/g' AnyKernel3/anykernel.sh
         sed -i 's/device.name2=.*/device.name2=X00T/g' AnyKernel3/anykernel.sh
         sed -i 's|BLOCK=.*;|BLOCK=/dev/block/bootdevice/by-name/boot;|g' AnyKernel3/anykernel.sh
         sed -i 's/IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=0;/g' AnyKernel3/anykernel.sh
+        
         cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
         cd AnyKernel3
-        zip -r9 ../CustomKernel-X00TD-rsuntk.zip *
+        zip -r9 ../CustomKernel-X00TD-rsuntk-KSU-Next.zip *
         
     - name: Upload Kernel Zip for You
       uses: actions/upload-artifact@v4
       with:
-        name: CustomKernel-X00TD-rsuntk
-        path: CustomKernel-X00TD-rsuntk.zip
+        name: CustomKernel-X00TD-rsuntk-KSU-Next
+        path: CustomKernel-X00TD-rsuntk-KSU-Next.zip
